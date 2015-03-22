@@ -7,6 +7,7 @@ With PAB you can
     1. Randomly display various page manager variants with a Randomize selection rule.
     2. Randomly display enabled panels for a given panelized entity when that entity has enabled panels choice.
     
+Eventually could abstract the above out to provide more than just randomization display logic aka geolocation and things like that.
 
 ## Usage
 
