@@ -1,0 +1,120 @@
+<?php
+/**
+ * @file
+ * Code for the panels_ab feature.
+ */
+
+include_once 'panels_ab.features.inc';
+
+/**
+ * Implementation of hook_ctools_plugin_directory()
+ */
+function panels_ab_ctools_plugin_directory($module, $plugin) {
+  return 'plugins/' . $plugin;
+}
+
+/*
+ * Implements hook_menu()
+ */
+function panels_ab_menu() {
+
+  $items['admin/config/content/panels_ab'] = array(
+    'title' => 'Panelizer AB',
+    'description' => t('Do some AB things on panelizer.'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('panels_ab_panelizers_form'),
+    'access arguments' => array('administer site configuration'),
+  );
+
+  return $items;
+}
+
+/*
+ * panels_ab admin form definition
+ */
+function panels_ab_panelizers_form($form, &$form_state) {
+  $panel_choice_allowed = array();
+  $panelizers = panelizer_get_entity_plugins();
+  foreach ($panelizers as $entity_type => $entity) {
+    foreach ($entity['bundles'] as $bundle_type => $bundle) {
+      if (isset($bundle['view modes']['page_manager']['choice']) && $bundle['view modes']['page_manager']['choice']) {
+        $panel_choice_allowed[] = array(
+          'entity' => $entity_type,
+          'bundle' => $bundle_type,
+        );
+      }
+    }
+  }
+
+  foreach ($panel_choice_allowed as $entities => $types) {
+    $type = $types['entity'] . '_' . $types['bundle'];
+
+    $form['checkbox'][$type] = array(
+      '#type' => 'checkbox',
+      '#title' => $type,
+      '#name' => $type,
+      '#default_value' => variable_get('panels_ab_panelizer_' . $type . '_randomize', false),
+    );
+  }
+
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => 'Submit',
+  );
+
+  $form['#submit'][] = 'panels_ab_form_submit';
+
+  return $form;
+}
+
+function panels_ab_form_submit($form, $form_state) {
+  foreach ($form_state['values'] as $key => $value) {
+    // Check for 0/1 since we are just doing all the form state values.
+    if ($value == '0' || $value == '1') {
+      variable_set('panels_ab_panelizer_' . $key . '_randomize', $value);
+    }
+  }
+}
+
+/*
+ * Implements hook_form_alter()
+ */
+function panels_ab_form_alter(&$form, &$form_state, $form_id) {
+  if (isset($form['#entity_type']) && isset($form['#bundle'])) {
+    $entity_type = $form['#entity_type'];
+    $bundle = $form['#bundle'];
+    if (variable_get('panels_ab_panelizer_' . $entity_type . '_' . $bundle . '_randomize', false)) {
+      $form['panelizer']['page_manager']['name']['#disabled'] = TRUE;
+      $form['panelizer']['#weight'] = 200;
+      $form['panelizer']['page_manager']['name']['#description'] = t('The panelizer display will be chosen ranomly, based on the Panelizer AB settings.');
+    }
+  }
+}
+
+
+/*
+ * Implements hook_panelizer_pre_render_alter ', $panelizer, $display, $entity);
+ */
+function panels_ab_entity_view($entity, $type, $view_mode, $langcode) {
+  // This should probably be in a different hook but put it here now
+  // for prottypinzzz
+  if ($view_mode === 'full') {
+    $bundle = $entity->type;
+    if (variable_get('panels_ab_panelizer_' . $type . '_' . $bundle . '_randomize', false)) {
+      $conditions = array(
+        'panelizer_type' => $type,
+        'panelizer_key' => $bundle,
+        'view_mode' => 'page_manager'
+      );
+      ctools_include('export');
+      $panels = ctools_export_load_object('panelizer_defaults', 'conditions', $conditions);
+      // remove disabled panels
+      foreach ($panels as $name => $panel) {
+        if (isset($panel->disabled) && $panel->disabled) {
+          unset($panels[$name]);
+        }
+      }
+      $entity->panelizer['page_manager'] = $panels[array_rand($panels)];
+    }
+  }
+}

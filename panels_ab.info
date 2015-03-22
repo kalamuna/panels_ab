@@ -1,0 +1,13 @@
+name = Panels AB
+description = Some basic AB testing things for page manager and panelizer.
+core = 7.x
+package = Panels
+version = 7.x-1.x
+project = panels_ab
+dependencies[] = ctools
+dependencies[] = page_manager
+dependencies[] = panelizer
+dependencies[] = panels
+features[ctools][] = page_manager:pages_default:1
+features[features_api][] = api:2
+features[page_manager_pages][] = ab_test
